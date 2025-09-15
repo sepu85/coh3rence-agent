@@ -27,3 +27,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Claude Code documentation (keep local only)
+CLAUDE.md
+
