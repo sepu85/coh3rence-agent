@@ -1,0 +1,9 @@
+ignoredBuiltDependencies:
+  - better-sqlite3
+  - bigint-buffer
+  - bufferutil
+  - esbuild
+  - sharp
+  - utf-8-validate
+onlyBuiltDependencies:
+  - better-sqlite3

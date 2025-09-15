@@ -1,0 +1,30 @@
+services:
+  bot-dev:
+    build:
+      context: .
+      target: builder
+    image: coh3rence-agent-bot-dev:latest
+    working_dir: /app
+    env_file: .env
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./src:/app/src:rw
+      - ./characters:/app/characters:rw
+      - botdata:/app/data
+    command: ["pnpm", "dev"]
+
+  bot:
+    build:
+      context: .
+      target: runtime
+    image: coh3rence-agent:latest
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - botdata:/app/data
+    command: ["node", "dist/main.js"]
+
+volumes:
+  botdata:
