@@ -35,12 +35,32 @@ class MemoryCache {
         // No-op in this minimal impl (we're not namespacing keys)
     }
 }
-/** Ensure minimal schema exists if adapter expects tables later */
+/** Ensure complete schema exists for Eliza framework */
 function ensureSchema(db) {
     db.exec(`
+    CREATE TABLE IF NOT EXISTS accounts (
+      id TEXT PRIMARY KEY,
+      createdAt INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+      email TEXT,
+      avatarUrl TEXT,
+      name TEXT,
+      username TEXT,
+      details TEXT DEFAULT '{}'
+    );
+
     CREATE TABLE IF NOT EXISTS rooms (
       id TEXT PRIMARY KEY,
       name TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS participants (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      roomId TEXT NOT NULL,
+      joinedAt INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+      last_message_read INTEGER DEFAULT 0,
+      FOREIGN KEY(userId) REFERENCES accounts(id),
+      FOREIGN KEY(roomId) REFERENCES rooms(id)
     );
 
     CREATE TABLE IF NOT EXISTS memories (
@@ -52,7 +72,47 @@ function ensureSchema(db) {
       roomId TEXT NOT NULL,
       agentId TEXT NOT NULL,
       "unique" INTEGER DEFAULT 0,
-      createdAt INTEGER NOT NULL
+      createdAt INTEGER NOT NULL,
+      FOREIGN KEY(userId) REFERENCES accounts(id),
+      FOREIGN KEY(roomId) REFERENCES rooms(id),
+      FOREIGN KEY(agentId) REFERENCES accounts(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS relationships (
+      id TEXT PRIMARY KEY,
+      userA TEXT NOT NULL,
+      userB TEXT NOT NULL,
+      status TEXT NOT NULL,
+      userId TEXT NOT NULL,
+      roomId TEXT NOT NULL,
+      createdAt INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+      FOREIGN KEY(userA) REFERENCES accounts(id),
+      FOREIGN KEY(userB) REFERENCES accounts(id),
+      FOREIGN KEY(userId) REFERENCES accounts(id),
+      FOREIGN KEY(roomId) REFERENCES rooms(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS goals (
+      id TEXT PRIMARY KEY,
+      roomId TEXT NOT NULL,
+      userId TEXT NOT NULL,
+      name TEXT NOT NULL,
+      status TEXT NOT NULL,
+      description TEXT,
+      createdAt INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+      FOREIGN KEY(roomId) REFERENCES rooms(id),
+      FOREIGN KEY(userId) REFERENCES accounts(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS logs (
+      id TEXT PRIMARY KEY,
+      roomId TEXT NOT NULL,
+      userId TEXT NOT NULL,
+      body TEXT NOT NULL,
+      type TEXT NOT NULL,
+      createdAt INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+      FOREIGN KEY(roomId) REFERENCES rooms(id),
+      FOREIGN KEY(userId) REFERENCES accounts(id)
     );
 
     CREATE TABLE IF NOT EXISTS proposals (
@@ -63,10 +123,12 @@ function ensureSchema(db) {
       content TEXT NOT NULL,
       authorId TEXT NOT NULL,
       stage TEXT NOT NULL DEFAULT 'CLARIFYING',
-      createdAt INTEGER NOT NULL,
-      updatedAt INTEGER NOT NULL,
+      createdAt INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+      updatedAt INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
       lastExplainedAt INTEGER DEFAULT 0,
-      UNIQUE(roomId, proposalNumber)
+      UNIQUE(roomId, proposalNumber),
+      FOREIGN KEY(roomId) REFERENCES rooms(id),
+      FOREIGN KEY(authorId) REFERENCES accounts(id)
     );
 
     CREATE TABLE IF NOT EXISTS proposal_interactions (
@@ -75,8 +137,9 @@ function ensureSchema(db) {
       userId TEXT NOT NULL,
       type TEXT NOT NULL,
       content TEXT NOT NULL,
-      createdAt INTEGER NOT NULL,
-      FOREIGN KEY(proposalId) REFERENCES proposals(id)
+      createdAt INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+      FOREIGN KEY(proposalId) REFERENCES proposals(id),
+      FOREIGN KEY(userId) REFERENCES accounts(id)
     );
   `);
 }
@@ -120,6 +183,13 @@ async function main() {
             cacheManager: new MemoryCache(),
         });
         // 5) Telegram client
+        console.log("🔍 Debug TELEGRAM_BOT_TOKEN:", process.env.TELEGRAM_BOT_TOKEN ? `${process.env.TELEGRAM_BOT_TOKEN.slice(0, 10)}...` : "NOT FOUND");
+        console.log("🔍 Debug character token:", character?.settings?.secrets?.TELEGRAM_BOT_TOKEN);
+        // Ensure the character uses the correct token from environment
+        if (character?.settings?.secrets && process.env.TELEGRAM_BOT_TOKEN) {
+            character.settings.secrets.TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+            console.log("✅ Fixed character token from environment");
+        }
         if (!process.env.TELEGRAM_BOT_TOKEN) {
             console.warn("⚠️ TELEGRAM_BOT_TOKEN missing in .env — Telegram may fail.");
         }

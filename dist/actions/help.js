@@ -42,6 +42,18 @@ Result: **Consensus achieved** ✅`,
 
 Result: **Blocked** ❌ (unresolved concerns need amendments)`
 };
+async function saveMemory(opts) {
+    const { runtime, roomId, userId, agentId, type, text } = opts;
+    await runtime.databaseAdapter.createMemory({
+        id: newId(),
+        roomId: roomId,
+        userId: userId,
+        agentId: agentId,
+        type,
+        content: { text },
+        createdAt: Date.now(),
+    });
+}
 const GENERAL_HELP_TEXT = `
 🤖 **Coh3rence Consensus Bot — Help Guide**
 
@@ -110,14 +122,13 @@ const helpProposalAction = {
                 return { content: { text: helpText } };
             }
             // Show general help
-            await runtime.databaseAdapter.createMemory({
-                id: newId(),
-                roomId: roomId,
-                userId: userId,
+            await saveMemory({
+                runtime,
+                roomId,
+                userId,
                 agentId: runtime.agentId,
                 type: "help",
-                content: { text: "General help viewed" },
-                createdAt: Date.now(),
+                text: "General help viewed",
             });
             return { content: { text: GENERAL_HELP_TEXT } };
         }
